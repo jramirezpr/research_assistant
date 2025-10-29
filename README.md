@@ -39,8 +39,7 @@ Here is an example of a summarized blog post:
 To connect your local server to the ADE (if you have a letta account):
 go into Account, click on Projects, then click on Connect to a server, and add the url http://localhost:8283 with whatever name for your sever you might like. If your server is running you should see it listed on the self-hosted tab, and you can click on it to monitor your local agents in the Dashboard.
 
-![Summarized text](images/letta_ADE_local_server.png"
-"self-hosted server")
+![Letta](images/letta_ADE_local_server.png "self-hosted server")
 
 ---
 
