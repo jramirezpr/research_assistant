@@ -31,6 +31,17 @@ Once running:
 - Visit the document upload app at `http://localhost:5000`
 - Letta endpoint is available at  `http://localhost:8283`
 
+
+Here is an example of a summarized blog post:
+
+![Summarized text](images/example_summary.png "summary")
+
+To connect your local server to the ADE (if you have a letta account):
+go into Account, click on Projects, then click on Connect to a server, and add the url http://localhost:8283 with whatever name for your sever you might like. If your server is running you should see it listed on the self-hosted tab, and you can click on it to monitor your local agents in the Dashboard.
+
+![Summarized text](images/letta_ADE_local_server.png"
+"self-hosted server")
+
 ---
 
 ##  How It Works
@@ -46,6 +57,9 @@ Once running:
 5. The Markdown + chunk summaries are uploaded to **Letta Filesystem**:
    -  Stored chunk-by-chunk
    -  Automatically embedded for vector search (RAG-ready)
+
+
+
 
 ---
 
@@ -90,6 +104,7 @@ OPENAI_API_KEY=your_key_here
 │   └── Dockerfile
 ├── .persist/postgres_data/  ← Letta DB storage
 ├── nginx.conf
+├──  images ← Used in the readme, ignore this
 └── README.md
 ```
 
