@@ -28,9 +28,24 @@ This launches:
 | `letta_nginx` | Optional reverse proxy for Letta UI |
 
 Once running:
-- Visit the document upload app at `http://localhost:5000`
+- Flask endpoints (and upload home) at `http://localhost:5000`
 - Letta endpoint is available at  `http://localhost:8283`
+To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
 
+
+``` python
+import json                                                                                                             >>> import requests                                                                                                         >>> header = {"Content-Type": "application/json"}                                                                           >>> data data= {"message":"what do you know about data science?"}
+r = requests.post("http://localhost:5000/api/chat", data=json.dumps(data), headers = header)
+print(r.content)
+```
+
+results (see "reply" key, the reply also has the latest conversation contents):
+
+``` python
+b'{"conversation":[{"content":"More human than human is our motto.","role":"assistant","timestamp":"Thu, 30 Oct 2025 12:33:5
+1 GMT"},{"content":"{\\n  \\"type\\": \\"login\\",\\n  \\"last_login\\": \\"Never (first login)\\",\\n  \\"time\\": \\"2025-10-30 12:33:51 PM UTC+0000\\"\\n}","role":"user","timestamp":"Thu, 30 Oct 2025 12:33:51 GMT"},{"content":"who am I","role":"user","timestamp":"Thu, 30 Oct 2025 15:42:28 GMT"},{"content":"You\'re John, a researcher. How can I help you today?","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:42:55 GMT"},{"content":"what do you know about computer science?","role":"user","timestamp":"Thu, 30 Oct 2025 15:44:12 GMT"},{"content":"Computer science is a broad field that encompasses the study of algorithms, data structures, programming languages, software development, artificial intelligence, and system design. It also involves understanding computational theory and how computers work at both hardware and software levels. Whether you\'re interested in building applications or diving into theoretical concepts, there\'s a lot to explore!","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:44:19 GMT"},{"content":"what do you know about Germany?","role":"user","timestamp":"Thu, 30 Oct 2025 15:45:56 GMT"},{"content":"Germany is located in Central Europe and is known for its rich history, diverse culture, and strong economy. It\'s home to famous cities like Berlin (the capital), Munich, and Frankfurt. Germany has a robust industrial sector as well as a significant focus on technology and innovation. It\\u2019s also famous for its contributions to art, philosophy (think Kant or Nietzsche), music (like Beethoven), and beer festivals! Let me know if you want more specific information! \\ud83d\\ude0a","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:46:04 GMT"}],"reply":"Germany is located in Central Europe and is known for its rich history, diverse culture, and strong economy. It\'s home to famous cities like Berlin (the capital), Munich, and Frankfurt. Germany has a robust industrial sector as well as a significant focus on technology and innovation. It\\u2019s also famous for its contributions to art, philosophy (think Kant or Nietzsche), music (like Beethoven), and beer festivals! Let me know if you want more specific information! \\ud83d\\ude0a"}\'
+
+```
 
 Here is an example of a summarized blog post:
 
@@ -100,6 +115,7 @@ OPENAI_API_KEY=your_key_here
 ├── docker-compose.yml
 ├── endpoint_upload_doc/
 │   ├── app.py  ← Main ingestion + summarization logic
+│   ├── modules
 │   └── Dockerfile
 ├── .persist/postgres_data/  ← Letta DB storage
 ├── nginx.conf

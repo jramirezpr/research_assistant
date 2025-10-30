@@ -6,6 +6,5 @@ WORKDIR /python-docker
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
-COPY  .env .
-COPY app.py .
+COPY . .
 CMD [ "flask","--app", "app", "run", "--host=0.0.0.0"]
