@@ -31,8 +31,6 @@ markitdown = MarkItDown()
 
 
 
-
-
 # Configure LLM
 llm = init_chat_model("gpt-4o-mini", model_provider="openai")
 
@@ -105,11 +103,20 @@ def upload_file():
         summary = f"Summary failed: {e}"
 
     try:
-        assistant.upload_file(file_path)
+        upload_info = assistant.upload_file(file_path)
+        file_id = upload_info["file_id"]
+        folder_id = upload_info["folder_id"]
     except Exception as e:
         print(f"[Upload] Failed to queue upload: {e}")
+        file_id = folder_id = None
 
-    return render_template("result.html", markdown_text=markdown_text, summary=summary)
+    return jsonify({
+        "summary": summary,
+        "markdown_text": markdown_text,
+        "file_id": file_id,
+        "folder_id": folder_id
+    })
+
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -132,6 +139,46 @@ def chat_with_agent():
 
     print(f"[Chat] Agent: {chat_data.get('reply')}")
     return jsonify(chat_data)
+
+@app.route("/api/upload/status", methods=["GET"])
+def get_file_upload_status():
+    """
+    Retrieve the current processing status of a file in a Letta folder.
+    Expects query parameters: ?folder_id=<id>&file_id=<id>
+    """
+    folder_id = request.args.get("folder_id")
+    file_id = request.args.get("file_id")
+
+    if not folder_id or not file_id:
+        return jsonify({"error": "Missing folder_id or file_id"}), 400
+
+    try:
+        files = assistant.client.folders.files.list(
+            folder_id=folder_id,
+            order="desc",
+            limit=10
+        )
+        file_status = None
+        for f in files:
+            if f.id == file_id:
+                file_status = getattr(f, "processing_status", None)
+                break
+
+        if not file_status:
+            return jsonify({
+                "file_id": file_id,
+                "status": "not_found"
+            }), 404
+
+        return jsonify({
+            "file_id": file_id,
+            "status": file_status
+        })
+
+    except Exception as e:
+        print(f"[Upload] Failed to retrieve file status: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":

@@ -143,46 +143,68 @@ class AssistantWithFilesys:
         except Exception as e:
             print(f"[Letta] Folder may already be attached: {e}")
 
-    def upload_file(self, file_path: str) -> str:
+    def upload_file(self, file_path: str) -> dict:
         """
         Upload a file asynchronously to the agent's folder.
-        Returns the Letta job ID immediately for progress tracking.
+        Returns immediately with the file_id and folder_id.
+
+        Args:
+            file_path (str): Local path to the file being uploaded.
+
+        Returns:
+            dict: {
+                "file_id": str,
+                "folder_id": str
+            }
         """
         if not self.folder:
             raise RuntimeError("Folder not initialized for this assistant.")
 
         folder_id = self.folder.id
 
-        # Start upload synchronously to get the job.id
         print(f"[Upload] Starting upload for: {file_path}")
-        with open(file_path, "rb") as f:
-            job = self.client.folders.files.upload(folder_id=folder_id, file=f)
+        try:
+            with open(file_path, "rb") as f:
+                file_obj = self.client.folders.files.upload(
+                    folder_id=folder_id,
+                    file=f
+                )
+        except Exception as e:
+            print(f"[Upload] Upload request failed for {file_path}: {e}")
+            raise
 
-        job_id = job.id
-        print(f"[Upload] Job created with ID: {job_id}")
+        file_id = file_obj.id
+        print(f"[Upload] File created with ID: {file_id}")
 
-        # Define background polling task
-        def _poll_job():
+        # Start background polling for completion
+        def _poll_file():
             try:
+                print(f"[Upload] Polling processing status for file: {file_id}")
                 while True:
-                    job_info = self.client.jobs.retrieve(job_id)
-                    if job_info.status == "completed":
-                        print(f"[Upload] Completed: {file_path}")
-                        break
-                    elif job_info.status == "failed":
-                        print(f"[Upload] Failed: {file_path} – {job_info.metadata}")
-                        break
+                    files = self.client.folders.files.list(
+                        folder_id=folder_id,
+                        order="desc",
+                        limit=10
+                    )
+                    for f in files:
+                        if f.id == file_id:
+                            status = getattr(f, "processing_status", None)
+                            if status == "completed":
+                                print(f"[Upload] Completed: {file_path}")
+                                return
+                            elif status == "failed":
+                                print(f"[Upload] Failed: {file_path}")
+                                return
+                            else:
+                                print(f"[Upload] Processing status: {status}")
                     time.sleep(1)
             except Exception as e:
-                print(f"[Upload] Exception while polling {file_path}: {e}")
+                print(f"[Upload] Polling error for {file_id}: {e}")
 
-        # Launch the poller in background
-        self.executor.submit(_poll_job)
+        self.executor.submit(_poll_file)
+        print(f"[Upload] Submitted background job for {file_path}")
 
-        return job_id
-
-
-
+        return {"file_id": file_id, "folder_id": folder_id}
 
 
 
