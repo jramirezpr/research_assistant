@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template, render_template_string
 from markitdown import MarkItDown
 from flask import jsonify, request
 
