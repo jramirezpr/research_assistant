@@ -28,7 +28,16 @@ This launches:
 | `letta_nginx` | Optional reverse proxy for Letta UI |
 
 Once running:
-- Flask endpoints (and upload home) at `http://localhost:5000`
+- Flask endpoints (and upload home) at `http://localhost:5000`:
+  - POST request at / for file upload. Returns:
+    | Field           | Type   | Description                                                                                     |
+    | --------------- | ------ | ----------------------------------------------------------------------------------------------- |
+    | `summary`       | string | The generated summary of the uploaded document, produced using map-reduce summarization.        |
+    | `markdown_text` | string | The extracted Markdown text version of the uploaded file (using MarkItDown).                    |
+    | `file_id`       | string | The unique Letta file identifier returned by the filesystem upload. Use this for status checks. |
+    | `folder_id`     | string | The ID of the Letta folder that stores the uploaded file.                                       |
+
+  - GET request at /api/upload/status?folder_id=${folderId}&file_id=${fileId} for a file upload status (to see when it is completed).
 - Letta endpoint is available at  `http://localhost:8283`
 To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
 
