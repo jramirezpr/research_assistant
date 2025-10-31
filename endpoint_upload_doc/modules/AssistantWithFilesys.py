@@ -143,7 +143,7 @@ class AssistantWithFilesys:
         except Exception as e:
             print(f"[Letta] Folder may already be attached: {e}")
 
-   def upload_file(self, file_path: str) -> str:
+    def upload_file(self, file_path: str) -> str:
         """
         Upload a file asynchronously to the agent's folder.
         Returns the Letta job ID immediately for progress tracking.
