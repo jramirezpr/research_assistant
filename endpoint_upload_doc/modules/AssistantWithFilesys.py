@@ -143,30 +143,29 @@ class AssistantWithFilesys:
         except Exception as e:
             print(f"[Letta] Folder may already be attached: {e}")
 
-    def upload_file(self, file_path: str):
+   def upload_file(self, file_path: str) -> str:
         """
         Upload a file asynchronously to the agent's folder.
-        This method submits the upload as a background task
-        and returns immediately.
+        Returns the Letta job ID immediately for progress tracking.
         """
         if not self.folder:
             raise RuntimeError("Folder not initialized for this assistant.")
 
         folder_id = self.folder.id
 
-        def _upload_job():
-            """Internal upload worker that runs in the background."""
-            try:
-                print(f"[Upload] Starting upload for: {file_path}")
-                with open(file_path, "rb") as f:
-                    job = self.client.folders.files.upload(
-                        folder_id=folder_id,
-                        file=f
-                    )
+        # Start upload synchronously to get the job.id
+        print(f"[Upload] Starting upload for: {file_path}")
+        with open(file_path, "rb") as f:
+            job = self.client.folders.files.upload(folder_id=folder_id, file=f)
 
-                # Poll for completion
+        job_id = job.id
+        print(f"[Upload] Job created with ID: {job_id}")
+
+        # Define background polling task
+        def _poll_job():
+            try:
                 while True:
-                    job_info = self.client.jobs.retrieve(job.id)
+                    job_info = self.client.jobs.retrieve(job_id)
                     if job_info.status == "completed":
                         print(f"[Upload] Completed: {file_path}")
                         break
@@ -174,13 +173,13 @@ class AssistantWithFilesys:
                         print(f"[Upload] Failed: {file_path} – {job_info.metadata}")
                         break
                     time.sleep(1)
-
             except Exception as e:
-                print(f"[Upload] Exception while uploading {file_path}: {e}")
+                print(f"[Upload] Exception while polling {file_path}: {e}")
 
-        # Submit background upload
-        self.executor.submit(_upload_job)
-        print(f"[Upload] Submitted background job for {file_path}")
+        # Launch the poller in background
+        self.executor.submit(_poll_job)
+
+        return job_id
 
 
 
