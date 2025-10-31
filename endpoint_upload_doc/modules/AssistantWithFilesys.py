@@ -145,11 +145,43 @@ class AssistantWithFilesys:
 
     def upload_file(self, file_path: str):
         """
-        Placeholder for uploading a file to the folder.
-        This will be implemented later.
+        Upload a file asynchronously to the agent's folder.
+        This method submits the upload as a background task
+        and returns immediately.
         """
-        print(f"[Letta] Upload file called for {file_path}. Implementation pending.")
-        pass
+        if not self.folder:
+            raise RuntimeError("Folder not initialized for this assistant.")
+
+        folder_id = self.folder.id
+
+        def _upload_job():
+            """Internal upload worker that runs in the background."""
+            try:
+                print(f"[Upload] Starting upload for: {file_path}")
+                with open(file_path, "rb") as f:
+                    job = self.client.folders.files.upload(
+                        folder_id=folder_id,
+                        file=f
+                    )
+
+                # Poll for completion
+                while True:
+                    job_info = self.client.jobs.retrieve(job.id)
+                    if job_info.status == "completed":
+                        print(f"[Upload] Completed: {file_path}")
+                        break
+                    elif job_info.status == "failed":
+                        print(f"[Upload] Failed: {file_path} – {job_info.metadata}")
+                        break
+                    time.sleep(1)
+
+            except Exception as e:
+                print(f"[Upload] Exception while uploading {file_path}: {e}")
+
+        # Submit background upload
+        self.executor.submit(_upload_job)
+        print(f"[Upload] Submitted background job for {file_path}")
+
 
 
 

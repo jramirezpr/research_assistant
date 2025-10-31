@@ -87,41 +87,29 @@ def upload_file():
         return "No file uploaded", 400
 
     file = request.files["file"]
-    filename = file.filename
-    file.save(filename)
+    file_path = file.filename
+    file.save(file_path)
 
     try:
-        result = markitdown.convert(filename)
-        markdown_text = result.text_content
+        result = markitdown.convert(file_path)
+        markdown_text = result.text_content.strip()
     except Exception as e:
-        return f"Markdown conversion error: {e}", 500
+        return f"Error processing file: {e}", 500
+
     if not markdown_text:
-        return  "file has no text that can be processed as markdown"
+        return "File has no text that can be processed as markdown.", 400
 
     try:
         summary = asyncio.run(map_reduce_summarize(markdown_text))
-        summarization_succeeded = True
     except Exception as e:
         summary = f"Summary failed: {e}"
-        summarization_succeeded = False
 
-    # Save to Letta (only if summary is good)
-    #executor.submit(background_upload, folder.id, filename)
+    try:
+        assistant.upload_file(file_path)
+    except Exception as e:
+        print(f"[Upload] Failed to queue upload: {e}")
 
-    letta_status = "Not uploaded"
-    if summarization_succeeded:
-        print(summarization_succeeded)
-       
-
-    return render_template_string("""
-        <h1>Summary </h1>
-        <pre style="white-space: pre-wrap;">{{ summary }}</pre>
-        <h1>Markdown</h1>
-        <pre style="white-space: pre-wrap; background:#eef;">{{ markdown }}</pre>
-        <h2>Letta Upload Status</h2>
-        <p>{{ letta }}</p>
-        <br><a href="/">← Upload another file</a>
-    """, markdown=markdown_text, summary=summary, letta=letta_status)
+    return render_template("result.html", markdown_text=markdown_text, summary=summary)
 
 
 @app.route("/api/chat", methods=["POST"])
