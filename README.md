@@ -39,8 +39,20 @@ Once running:
 
   - GET request at /api/upload/status?folder_id=${folderId}&file_id=${fileId} for a file upload status (to see when it is completed).
 - Letta endpoint is available at  `http://localhost:8283`
-To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
 
+
+After uploading a document we can send a GET request to http://localhost:5000/api/upload/status with params e.g:
+
+```
+http://localhost:5000/api/upload/status?folder_id=source-1add8bb9-913e-4a16-bd25-dcb0ed707a99&file_id=file-e8a4c2ee-c104-439d-be89-826659f5580c
+```
+
+shows upload of the file (completed when done):
+
+``` json
+{"file_id":"file-e8a4c2ee-c104-439d-be89-826659f5580c","status":"completed"}
+To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
+```
 
 ``` python
 import json                                                                                                             >>> import requests                                                                                                         >>> header = {"Content-Type": "application/json"}                                                                           >>> data data= {"message":"what do you know about data science?"}
