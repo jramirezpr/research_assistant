@@ -79,21 +79,21 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 
 ---
 
-##  How It Works
+##  Document Upload Steps
 
 
-1. User uploads a `.pdf` or `.docx`
-2. `MarkItDown` converts the file → Markdown text
-3. We **split large documents** into multiple chunks  
-   (documents might be larger than 80000 token chunk limit)
-4. We run **async map-reduce summarization**:
-   - MAP: Summarize each chunk independently → partial summaries
-   - REDUCE: Summarize the summaries → final result
-5. The Markdown + chunk summaries are uploaded to **Letta Filesystem**:
-   -  Stored chunk-by-chunk
-   -  Automatically embedded for vector search (RAG-ready)
-
-
+1. The file is **converted to Markdown** using [MarkItDown](https://github.com/microsoft/markitdown).  
+2. The extracted Markdown text is **summarized** using an async **map–reduce** pipeline (efficient for large files).  
+3. The Markdown text — **not the original PDF/DOCX binary** — is uploaded as a `.md` file to your Letta agent’s folder.  
+4. The **uploaded file name always matches the original document name**, but with a `.md` extension  
+   *(e.g., `research_paper.pdf` → `research_paper.md`).*  
+5. The Flask app immediately returns a JSON response containing:  
+   - The generated summary  
+   - The parsed Markdown text  
+   - The Letta `file_id` (for upload tracking)  
+   - The `folder_id` (where the file resides)  
+6. A **background thread** polls the Letta server for completion of the embedding and chunking process (`processing → completed`).  
+7. Once complete, the Markdown is ready for retrieval or question answering.
 
 
 ---
