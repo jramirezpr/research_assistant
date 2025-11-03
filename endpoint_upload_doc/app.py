@@ -1,206 +1,149 @@
 import os
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-import threading
 import time
+import uuid
 from datetime import datetime
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, render_template_string
 from markitdown import MarkItDown
-from flask import jsonify, request
-
-from langchain.chat_models import init_chat_model
-from langchain_text_splitters import CharacterTextSplitter
-from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-
 from modules.AssistantWithFilesys import AssistantWithFilesys
 
-assistant = AssistantWithFilesys(
-    agent_name="re_v2",
-    folder_name="upload_v2",
-    base_url="http://letta_server:8283/",
-    personality="helpful"
-)
-
 load_dotenv()
+
 app = Flask(__name__)
 markitdown = MarkItDown()
-
-
-
-
-
-# Configure LLM
-llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-
-# Map and reduce Prompts
-map_prompt = ChatPromptTemplate.from_messages(
-    [("system", "Write a concise summary of the following:\n\n{context}")]
-)
-reduce_prompt = ChatPromptTemplate.from_messages(
-    [("system",
-      "The following are summary fragments:\n\n{summaries}\n\n"
-      "Condense into one high-quality final summary.")]
-)
-
-# Chunk for summarization AND embedding
-text_splitter = CharacterTextSplitter(chunk_size=80000, chunk_overlap=500)
-
-
-async def map_reduce_summarize(markdown_text: str) -> str:
-    docs = text_splitter.split_text(markdown_text)
-    docs = [Document(page_content=d) for d in docs]
-
-    async def summarize_doc(doc):
-        prompt = map_prompt.invoke({"context": doc.page_content})
-        response = await llm.ainvoke(prompt)
-        return response.content
-
-    # MAP PHASE: apply summarize_doc
-    summaries = await asyncio.gather(*(summarize_doc(doc) for doc in docs))
-
-    # REDUCE PHASE: final summary 
-    reduce_input = {"summaries": "\n".join(summaries)}
-    final_prompt = reduce_prompt.invoke(reduce_input)
-    final_response = await llm.ainvoke(final_prompt)
-
-    return final_response.content
-
+LETTA_BASE = "http://localhost:8283/"
+agents = {}
 
 @app.route("/")
 def index():
-    return render_template_string("""
-        <h1>Upload a PDF or Word Document</h1>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".pdf,.docx" required>
-            <button type="submit">Upload + Summarize</button>
-        </form>
-    """)
+    return render_template("index.html")
 
+@app.route("/api/agent/create", methods=["POST"])
+def create_agent():
+    data = request.get_json(silent=True) or {}
+    agent_name = data.get("agent_name")
+    personality = data.get("personality", "helpful")
+    if not agent_name:
+        agent_name = f"no_name_{uuid.uuid4().hex[:8]}"
+    folder_name = f"{agent_name}_research_folder"
+    try:
+        assistant = AssistantWithFilesys(
+            agent_name=agent_name,
+            folder_name=folder_name,
+            base_url=LETTA_BASE,
+            personality=personality
+        )
+        agent_id = assistant.get_agent_id()
+        folder_id = assistant.get_folder_id()
+        agents[agent_id] = assistant
+        return jsonify({
+            "message": "Agent created successfully",
+            "agent_name": agent_name,
+            "agent_id": agent_id,
+            "folder_id": folder_id,
+            "personality": personality
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@app.route("/", methods=["POST"])
+@app.route("/api/agent/list", methods=["GET"])
+def list_agents():
+    if not agents:
+        return jsonify({"agents": []}), 200
+    agent_data = []
+    for agent_id, assistant in agents.items():
+        agent_data.append({
+            "agent_id": agent_id,
+            "agent_name": assistant.agent_name,
+            "folder_id": assistant.get_folder_id(),
+            "personality": assistant.personality
+        })
+    return jsonify({"agents": agent_data}), 200
+
+@app.route("/upload", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
-
     file = request.files["file"]
-    file_path = file.filename
-    file.save(file_path)
-
-    # 1. Convert to Markdown
+    agent_id = request.form.get("agent_id")
+    if not agent_id or agent_id not in agents:
+        return jsonify({"error": "Missing or invalid agent_id"}), 400
+    assistant = agents[agent_id]
+    filename = file.filename or f"unnamed_{uuid.uuid4().hex[:6]}.txt"
+    temp_path = os.path.join("/tmp", filename)
+    file.save(temp_path)
     try:
-        result = markitdown.convert(file_path)
+        result = markitdown.convert(temp_path)
         markdown_text = result.text_content
     except Exception as e:
         return jsonify({"error": f"Error processing file: {e}"}), 500
-
     if not markdown_text:
-        return jsonify({"error": "File has no text that can be processed as Markdown"}), 400
-
-    # 2. Summarize using async map-reduce
+        return jsonify({"error": "File has no readable text"}), 400
     try:
-        summary = asyncio.run(map_reduce_summarize(markdown_text))
+        summary = assistant.summarize(markdown_text)
     except Exception as e:
-        summary = f"Summary failed: {e}"
-
-    # 3. Upload both Markdown and summary to Letta
-    main_file_info = summary_file_info = None
-
-    try:
-        # Main document upload
-        main_filename = f"{os.path.splitext(file.filename)[0]}.md"
-        main_file_info = assistant.upload_text_as_file(markdown_text, filename=main_filename)
-
-        # Summary upload (with inline header)
-        summary_filename = f"{os.path.splitext(file.filename)[0]}_summary.md"
-        summary_with_header = (
-            f"---\n"
-            f"type: summary\n"
-            f"source: {file.filename}\n"
-            f"api_upload_date: {datetime.now().isoformat()}\n"
-            f"---\n\n"
-            f"{summary}"
-        )
-
-        summary_file_info = assistant.upload_text_as_file(
-            summary_with_header,
-            filename=summary_filename
-        )
-
-    except Exception as e:
-        print(f"[Upload] Failed to queue Letta uploads: {e}")
-
-    # 4. Return JSON response
+        return jsonify({"error": f"Summarization failed: {e}"}), 500
+    date_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    summary_text = f"API Upload Date: {date_str}\n\n{summary}"
+    summary_path = os.path.join("/tmp", f"{filename}_summary.txt")
+    markdown_path = os.path.join("/tmp", f"{filename}_markdown.txt")
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write(summary_text)
+    with open(markdown_path, "w", encoding="utf-8") as f:
+        f.write(markdown_text)
+    file_id_summary = assistant.upload_file(summary_path, filename=f"{filename}_summary.txt")
+    file_id_markdown = assistant.upload_file(markdown_path, filename=f"{filename}_markdown.txt")
+    folder_id = assistant.get_folder_id()
     return jsonify({
         "summary": summary,
         "markdown_text": markdown_text,
-        "main_upload": main_file_info,
-        "summary_upload": summary_file_info
-    })
-
-
-@app.route("/api/chat", methods=["POST"])
-def chat_with_agent():
-    """
-    Send a user message to the Letta agent and return the assistant's reply
-    along with the recent conversation.
-    """
-    data = request.get_json(silent=True)
-    if not data or "message" not in data:
-        return jsonify({"error": "Missing 'message' field"}), 400
-
-    user_message = data["message"].strip()
-    if not user_message:
-        return jsonify({"error": "Empty message"}), 400
-
-    print(f"[Chat] User: {user_message}")
-
-    chat_data = assistant.chat(user_message)
-
-    print(f"[Chat] Agent: {chat_data.get('reply')}")
-    return jsonify(chat_data)
+        "file_id_summary": file_id_summary,
+        "file_id_markdown": file_id_markdown,
+        "folder_id": folder_id,
+        "agent_id": agent_id
+    }), 200
 
 @app.route("/api/upload/status", methods=["GET"])
-def get_file_upload_status():
-    """
-    Retrieve the current processing status of a file in a Letta folder.
-    Expects query parameters: ?folder_id=<id>&file_id=<id>
-    """
+def check_upload_status():
     folder_id = request.args.get("folder_id")
     file_id = request.args.get("file_id")
-
-    if not folder_id or not file_id:
-        return jsonify({"error": "Missing folder_id or file_id"}), 400
-
+    agent_id = request.args.get("agent_id")
+    if not folder_id or not file_id or not agent_id:
+        return jsonify({"error": "Missing folder_id, file_id, or agent_id"}), 400
+    if agent_id not in agents:
+        return jsonify({"error": "Unknown agent_id"}), 404
+    assistant = agents[agent_id]
     try:
         files = assistant.client.folders.files.list(
             folder_id=folder_id,
             order="desc",
             limit=10
         )
-        file_status = None
         for f in files:
             if f.id == file_id:
-                file_status = getattr(f, "processing_status", None)
-                break
-
-        if not file_status:
-            return jsonify({
-                "file_id": file_id,
-                "status": "not_found"
-            }), 404
-
-        return jsonify({
-            "file_id": file_id,
-            "status": file_status
-        })
-
+                return jsonify({
+                    "file_id": file_id,
+                    "status": f.processing_status
+                }), 200
+        return jsonify({"error": "File not found"}), 404
     except Exception as e:
-        print(f"[Upload] Failed to retrieve file status: {e}")
         return jsonify({"error": str(e)}), 500
 
-
+@app.route("/api/chat", methods=["POST"])
+def chat_with_agent():
+    data = request.get_json(silent=True)
+    if not data or "message" not in data or "agent_id" not in data:
+        return jsonify({"error": "Missing 'message' or 'agent_id'"}), 400
+    agent_id = data["agent_id"]
+    if agent_id not in agents:
+        return jsonify({"error": "Unknown agent_id"}), 404
+    assistant = agents[agent_id]
+    user_message = data["message"].strip()
+    try:
+        chat_data = assistant.chat(user_message)
+        return jsonify(chat_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
