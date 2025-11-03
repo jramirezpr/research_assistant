@@ -1,4 +1,6 @@
 import os
+import tempfile
+
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 from letta_client import Letta
@@ -6,6 +8,10 @@ from letta_client import Letta
 # Load environment variables if not already set. Letta client needs this.
 if "OPENAI_API_KEY" not in os.environ:
     load_dotenv()
+import time
+
+
+
 
 
 class AssistantWithFilesys:
@@ -143,13 +149,15 @@ class AssistantWithFilesys:
         except Exception as e:
             print(f"[Letta] Folder may already be attached: {e}")
 
-    def upload_file(self, file_path: str) -> dict:
+    def upload_text_as_file(self, text_content: str, filename: str) -> dict:
         """
-        Upload a file asynchronously to the agent's folder.
-        Returns immediately with the file_id and folder_id.
+        Uploads text content (e.g., parsed Markdown) as a file to the agent's folder.
+        The filename is required — it should typically match the original uploaded file's name,
+        but with a `.md` extension.
 
         Args:
-            file_path (str): Local path to the file being uploaded.
+            text_content (str): The Markdown text to upload.
+            filename (str): The filename to use for the uploaded file (required).
 
         Returns:
             dict: {
@@ -162,49 +170,57 @@ class AssistantWithFilesys:
 
         folder_id = self.folder.id
 
-        print(f"[Upload] Starting upload for: {file_path}")
+        # Write text content to a temporary Markdown file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".md", mode="w", encoding="utf-8") as tmp_file:
+            tmp_file.write(text_content)
+            tmp_file_path = tmp_file.name
+
+        print(f"[Upload] Created temporary file for upload: {tmp_file_path}")
+
         try:
-            with open(file_path, "rb") as f:
+            with open(tmp_file_path, "rb") as f:
                 file_obj = self.client.folders.files.upload(
                     folder_id=folder_id,
                     file=f
                 )
-        except Exception as e:
-            print(f"[Upload] Upload request failed for {file_path}: {e}")
-            raise
 
-        file_id = file_obj.id
-        print(f"[Upload] File created with ID: {file_id}")
+            file_id = file_obj.id
+            print(f"[Upload] File created with ID: {file_id}")
 
-        # Start background polling for completion
-        def _poll_file():
-            try:
-                print(f"[Upload] Polling processing status for file: {file_id}")
-                while True:
-                    files = self.client.folders.files.list(
-                        folder_id=folder_id,
-                        order="desc",
-                        limit=10
-                    )
-                    for f in files:
-                        if f.id == file_id:
-                            status = getattr(f, "processing_status", None)
-                            if status == "completed":
-                                print(f"[Upload] Completed: {file_path}")
-                                return
-                            elif status == "failed":
-                                print(f"[Upload] Failed: {file_path}")
-                                return
-                            else:
-                                print(f"[Upload] Processing status: {status}")
-                    time.sleep(1)
-            except Exception as e:
-                print(f"[Upload] Polling error for {file_id}: {e}")
+            # Start background polling for completion
+            def _poll_file():
+                try:
+                    print(f"[Upload] Polling processing status for file: {file_id}")
+                    while True:
+                        files = self.client.folders.files.list(
+                            folder_id=folder_id,
+                            order="desc",
+                            limit=10
+                        )
+                        for f in files:
+                            if f.id == file_id:
+                                status = getattr(f, "processing_status", None)
+                                if status == "completed":
+                                    print(f"[Upload] Completed: {filename}")
+                                    return
+                                elif status == "failed":
+                                    print(f"[Upload] Failed: {filename}")
+                                    return
+                                else:
+                                    print(f"[Upload] Processing status: {status}")
+                        time.sleep(1)
+                except Exception as e:
+                    print(f"[Upload] Polling error for {file_id}: {e}")
 
-        self.executor.submit(_poll_file)
-        print(f"[Upload] Submitted background job for {file_path}")
+            self.executor.submit(_poll_file)
+
+        finally:
+            # Clean up temporary file
+            os.remove(tmp_file_path)
+            print(f"[Upload] Deleted temporary file: {tmp_file_path}")
 
         return {"file_id": file_id, "folder_id": folder_id}
+
 
 
 
