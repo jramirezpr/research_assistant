@@ -28,7 +28,7 @@ This launches:
 | `letta_nginx` | Optional reverse proxy for Letta UI |
 
 Once running:
-- Flask endpoints (and upload home) at `http://localhost:5000`:
+- Flask endpoints (and upload home) at `http://localhost:5000/`:
   - POST request at / for file upload. Returns:
     | Field           | Type   | Description                                                                                     |
     | --------------- | ------ | ----------------------------------------------------------------------------------------------- |
@@ -84,16 +84,25 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 
 1. The file is **converted to Markdown** using [MarkItDown](https://github.com/microsoft/markitdown).  
 2. The extracted Markdown text is **summarized** using an async **map–reduce** pipeline (efficient for large files).  
-3. The Markdown text — **not the original PDF/DOCX binary** — is uploaded as a `.md` file to your Letta agent’s folder.  
-4. The **uploaded file name always matches the original document name**, but with a `.md` extension  
-   *(e.g., `research_paper.pdf` → `research_paper.md`).*  
-5. The Flask app immediately returns a JSON response containing:  
+3. Both the **Markdown text** and its **summary** are uploaded to your Letta agent’s folder:
+   - The parsed text is uploaded as `<name>.md`  
+   - The summary is uploaded as `<name>_summary.md`
+4. Each uploaded summary includes a small YAML-style inline header that stores helpful context:
+   ```markdown
+   ---
+   type: summary
+   source: research_paper.pdf
+   date: 2025-11-02T17:25:13.541928
+   ---
+   ```
+5. The **uploaded file names always match the original document name**, with `.md` and `_summary.md` suffixes.  
+   *(e.g., `report.pdf` → `report.md` and `report_summary.md`.)*
+6. The Flask app immediately returns a JSON response containing:
    - The generated summary  
    - The parsed Markdown text  
-   - The Letta `file_id` (for upload tracking)  
-   - The `folder_id` (where the file resides)  
-6. A **background thread** polls the Letta server for completion of the embedding and chunking process (`processing → completed`).  
-7. Once complete, the Markdown is ready for retrieval or question answering.
+   - The Letta `file_id` and `folder_id` (for tracking)  
+7. A **background thread** polls the Letta server for completion of embedding and chunking (`processing → completed`).
+8. Once complete, the Markdown is ready for retrieval or question answering.
 
 
 ---

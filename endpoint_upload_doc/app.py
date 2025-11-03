@@ -82,41 +82,62 @@ def index():
 @app.route("/", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
-        return "No file uploaded", 400
+        return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
     file_path = file.filename
     file.save(file_path)
 
+    # 1. Convert to Markdown
     try:
         result = markitdown.convert(file_path)
-        markdown_text = result.text_content.strip()
+        markdown_text = result.text_content
     except Exception as e:
-        return f"Error processing file: {e}", 500
+        return jsonify({"error": f"Error processing file: {e}"}), 500
 
     if not markdown_text:
-        return "File has no text that can be processed as markdown.", 400
+        return jsonify({"error": "File has no text that can be processed as Markdown"}), 400
 
+    # 2. Summarize using async map-reduce
     try:
         summary = asyncio.run(map_reduce_summarize(markdown_text))
     except Exception as e:
         summary = f"Summary failed: {e}"
 
-    try:
-        upload_info = assistant.upload_file(file_path)
-        file_id = upload_info["file_id"]
-        folder_id = upload_info["folder_id"]
-    except Exception as e:
-        print(f"[Upload] Failed to queue upload: {e}")
-        file_id = folder_id = None
+    # 3. Upload both Markdown and summary to Letta
+    main_file_info = summary_file_info = None
 
+    try:
+        # Main document upload
+        main_filename = f"{os.path.splitext(file.filename)[0]}.md"
+        main_file_info = assistant.upload_text_as_file(markdown_text, filename=main_filename)
+
+        # Summary upload (with inline header)
+        summary_filename = f"{os.path.splitext(file.filename)[0]}_summary.md"
+        summary_with_header = (
+            f"---\n"
+            f"type: summary\n"
+            f"source: {file.filename}\n"
+            f"api_upload_date: {datetime.now().isoformat()}\n"
+            f"---\n\n"
+            f"{summary}"
+        )
+
+        summary_file_info = assistant.upload_text_as_file(
+            summary_with_header,
+            filename=summary_filename
+        )
+
+    except Exception as e:
+        print(f"[Upload] Failed to queue Letta uploads: {e}")
+
+    # 4. Return JSON response
     return jsonify({
         "summary": summary,
         "markdown_text": markdown_text,
-        "file_id": file_id,
-        "folder_id": folder_id
+        "main_upload": main_file_info,
+        "summary_upload": summary_file_info
     })
-
 
 
 @app.route("/api/chat", methods=["POST"])
