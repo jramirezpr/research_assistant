@@ -28,3 +28,5 @@ frontend/pnpm-debug.log*
 frontend/dist/
 frontend/build/
 frontend/.DS_Store
+*.tsbuildinfo
+/.next
