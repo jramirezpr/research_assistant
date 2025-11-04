@@ -11,7 +11,7 @@ load_dotenv()
 
 app = Flask(__name__)
 markitdown = MarkItDown()
-LETTA_BASE = "http://localhost:8283/"
+LETTA_BASE = "http://letta_server:8283/"
 agents = {}
 
 @app.route("/")
@@ -23,6 +23,7 @@ def create_agent():
     data = request.get_json(silent=True) or {}
     agent_name = data.get("agent_name")
     personality = data.get("personality", "helpful")
+    print(f"creating agent {agent_name}")
     if not agent_name:
         agent_name = f"no_name_{uuid.uuid4().hex[:8]}"
     folder_name = f"{agent_name}_research_folder"
