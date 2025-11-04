@@ -28,6 +28,9 @@ This launches:
 | `letta_nginx` | Optional reverse proxy for Letta UI |
 
 Once running:
+-front-end (WOrk in progress) at `http://localhost:300/`: 
+  ![homepage](images/f_end.png "assistant front-end")
+
 - Flask endpoints (and upload home) at `http://localhost:5000/`:
   - POST request at / for file upload. Returns:
     | Field           | Type   | Description                                                                                     |
