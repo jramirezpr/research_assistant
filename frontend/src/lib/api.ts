@@ -12,21 +12,24 @@ if (!LETTA_URL) console.warn(" NEXT_PUBLIC_LETTA_URL not set");
  * Upload a document file to the Flask API.
  * Returns JSON: { summary, markdown_text, file_id, folder_id }
  */
-export async function uploadFile(file: File) {
+export async function uploadFile(file: File, agentId: string) {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("agent_id", agentId);
 
-  const response = await fetch(`${API_BASE_URL}/`, {
+  const response = await fetch(`${API_BASE_URL}/api/upload`, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(`Upload failed: ${response.statusText}`);
+    const text = await response.text();
+    throw new Error(`Upload failed: ${response.status} - ${text}`);
   }
 
   return response.json();
 }
+
 
 /**
  * Poll upload status by folder_id and file_id.
