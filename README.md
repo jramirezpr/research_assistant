@@ -30,12 +30,14 @@ docker compose up --build
 
 This launches:
 
-| Service | Purpose |
-|--------|---------|
-| `letta_db` | pgvector database for storing the documents. We connect it with Letta |
-| `letta_server` | Letta knowledge server + LLM routing |
-| `endpoint_upload_docu` | The document ingestion + summarization Flask app |
-| `letta_nginx` | Optional reverse proxy for Letta UI |
+| Service               | Purpose                                     |
+| --------------------- | ------------------------------------------- |
+| `letta_db`            | pgvector database                           |
+| `letta_server`        | Letta LLM knowledge server                  |
+| `endpoint_upload_doc` | Flask doc ingestion + summarization service |
+| `letta_nginx`         | Nginx reverse proxy for letta_server        |
+| `frontend`            | Next.js UI (port 3000)                      |
+
 
 Once running:
 -front-end (WOrk in progress) at `http://localhost:3000/`: 
@@ -44,16 +46,60 @@ Once running:
 
 
 - Flask endpoints (and upload home) at `http://localhost:5000/`:
-  - POST request at / for file upload. Returns:
-    | Field           | Type   | Description                                                                                     |
-    | --------------- | ------ | ----------------------------------------------------------------------------------------------- |
-    | `summary`       | string | The generated summary of the uploaded document, produced using map-reduce summarization.        |
-    | `markdown_text` | string | The extracted Markdown text version of the uploaded file (using MarkItDown).                    |
-    | `file_id`       | string | The unique Letta file identifier returned by the filesystem upload. Use this for status checks. |
-    | `folder_id`     | string | The ID of the Letta folder that stores the uploaded file.                                       |
+   | Action                  | Method | Endpoint             |
+   | ----------------------- | ------ | -------------------- |
+   | Create agent            | `POST` | `/api/agent/create`  |
+   | List agents             | `GET`  | `/api/agent/list`    |
+   | Upload file             | `POST` | `/api/upload`        |
+   | Check file embed status | `GET`  | `/api/upload/status` |
+   | Chat with agent         | `POST` | `/api/chat`          |
 
-  - GET request at /api/upload/status?folder_id=${folderId}&file_id=${fileId} for a file upload status (to see when it is completed).
 - Letta endpoint is available at  `http://localhost:8283`
+
+### Agent creation:
+POST http://localhost:5000/api/agent/create
+{
+  "agent_name": "research_bot",
+  "personality": "helpful"
+}
+
+| Field         | Required | Type   | Description                                             |
+| ------------- | -------- | ------ | ------------------------------------------------------- |
+| `agent_name`  | No, but recommended        | string | Agent name. If omitted, one is auto-generated. |
+| `personality` | No        | string | Agent persona ("helpful" default).                      |
+
+Response (Json) fields
+| Field        | Description                            |
+| ------------ | -------------------------------------- |
+| `agent_id`   | Unique ID used for chat & file uploads |
+| `folder_id`  | Folder where documents will be stored  |
+| `agent_name` | Final name (auto-generated if omitted) |
+
+
+### Upload Document
+
+POST http://localhost:5000/api/upload
+
+Form-data fields:
+
+| Field      | Type   | Required |
+| ---------- | ------ | -------- |
+| `file`     | File   | yes      |
+| `agent_id` | String | yes      |
+
+
+Response:
+
+| Field              | Description                  |
+| ------------------ | ---------------------------- |
+| `summary`          | LLM summary                  |
+| `markdown_text`    | Extracted Markdown           |
+| `file_id_summary`  | ID of summary file in Letta  |
+| `file_id_markdown` | ID of markdown file in Letta |
+| `folder_id`        | Letta folder ID              |
+| `agent_id`         | Agent used                   |
+
+
 
 
 After uploading a document we can send a GET request to http://localhost:5000/api/upload/status with params e.g:
@@ -122,23 +168,7 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 
 ---
 
-## Flow graph
 
-```
-[PDF/DOCX Upload]
-        |
-        v
-[Flask Ingestion App]
-        |
-        | MarkItDown
-        v
-[Markdown Text] ----> [Chunking + Embedding] ---> Letta FS (RAG-ready)
-        |
-        | Async Map-Reduce LLM Summarization
-        v
-[Final Summary] --------------------------------> Letta FS
-```
----
 
 
 
@@ -154,6 +184,7 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 │   └── Dockerfile
 ├── .persist/postgres_data/  ← Letta DB storage
 ├── nginx.conf
+├── frontend/    ← Next.js UI
 ├──  images ← Used in the readme, ignore this
 └── README.md
 ```
