@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   uploadFile,
-  checkUploadStatus,
   sendChatMessage,
   createAgent,
 } from "@/lib/api";
@@ -76,6 +75,8 @@ export default function HomePage() {
   const buttonClasses =
     "px-4 py-2 rounded bg-white text-teal-700 font-semibold border border-white hover:bg-gray-100 transition";
 
+  const showSections = agentId && !creatingAgent;
+
   return (
     <div className="min-h-screen bg-teal-500 text-white p-10">
       <h1 className="text-center text-4xl font-bold mb-10">
@@ -88,7 +89,7 @@ export default function HomePage() {
           className="border rounded px-3 py-2 text-black"
           value={personality}
           onChange={(e) => setPersonality(e.target.value)}
-          disabled={creatingAgent || !!agentId} // disable while creating or after creation
+          disabled={creatingAgent || !!agentId}
         >
           <option value="helpful">Helpful</option>
           <option value="formal">Formal</option>
@@ -112,68 +113,67 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* File upload & chat: only visible after agent creation */}
-      {agentId && !creatingAgent && (
-        <>
-          {/* File upload */}
-          <div className="text-center mb-10">
-            <input type="file" onChange={handleFileChange} className="mb-3" />
+      {/* Fade-in file upload & chat */}
+      <div
+        className={`transition-opacity duration-500 ${
+          showSections ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        {/* File upload */}
+        <div className="text-center mb-10">
+          <input type="file" onChange={handleFileChange} className="mb-3" />
 
-            <button onClick={handleUpload} className={buttonClasses}>
-              Upload & Summarize
-            </button>
+          <button onClick={handleUpload} className={buttonClasses}>
+            Upload & Summarize
+          </button>
 
-            {loading && (
-              <div className="mt-4 flex justify-center">
-                <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            )}
-          </div>
-
-          {/* Summary & Markdown */}
-          {summary && (
-            <div className="bg-white text-black p-4 rounded shadow mb-6">
-              <h3 className="text-xl mb-2 font-bold">Summary</h3>
-              <pre className="whitespace-pre-wrap">{summary}</pre>
+          {loading && (
+            <div className="mt-4 flex justify-center">
+              <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
             </div>
           )}
+        </div>
 
-          {markdown && (
-            <div className="bg-gray-100 text-black p-4 rounded shadow mb-6">
-              <h3 className="text-xl mb-2 font-bold">Markdown</h3>
-              <pre className="whitespace-pre-wrap overflow-x-auto">{markdown}</pre>
-            </div>
-          )}
-
-          {/* Chat */}
-          <div className="bg-white text-black p-4 rounded shadow">
-            <h2 className="font-bold mb-2">Chat with Agent</h2>
-
-            <textarea
-              className="w-full border p-2 rounded mb-2 text-black"
-              rows={3}
-              value={chatMessage}
-              onChange={(e) => setChatMessage(e.target.value)}
-              placeholder="Ask something about your uploaded documents..."
-            />
-
-            <button onClick={handleChat} className={buttonClasses}>
-              Send
-            </button>
-
-            <div className="mt-3 max-h-48 overflow-y-auto text-sm">
-              {chatLog.map((m, i) => (
-                <p key={i} className="mb-1">
-                  {m}
-                </p>
-              ))}
-            </div>
+        {/* Summary & Markdown */}
+        {summary && (
+          <div className="bg-white text-black p-4 rounded shadow mb-6">
+            <h3 className="text-xl mb-2 font-bold">Summary</h3>
+            <pre className="whitespace-pre-wrap">{summary}</pre>
           </div>
-        </>
-      )}
+        )}
+
+        {markdown && (
+          <div className="bg-gray-100 text-black p-4 rounded shadow mb-6">
+            <h3 className="text-xl mb-2 font-bold">Markdown</h3>
+            <pre className="whitespace-pre-wrap overflow-x-auto">{markdown}</pre>
+          </div>
+        )}
+
+        {/* Chat */}
+        <div className="bg-white text-black p-4 rounded shadow">
+          <h2 className="font-bold mb-2">Chat with Agent</h2>
+
+          <textarea
+            className="w-full border p-2 rounded mb-2 text-black"
+            rows={3}
+            value={chatMessage}
+            onChange={(e) => setChatMessage(e.target.value)}
+            placeholder="Ask something about your uploaded documents..."
+          />
+
+          <button onClick={handleChat} className={buttonClasses}>
+            Send
+          </button>
+
+          <div className="mt-3 max-h-48 overflow-y-auto text-sm">
+            {chatLog.map((m, i) => (
+              <p key={i} className="mb-1">
+                {m}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-
-
