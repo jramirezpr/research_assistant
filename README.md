@@ -10,7 +10,17 @@ Uploads documents documents
 
 You can later query / chat over all stored knowledge using Letta.
 
+## Requirements
+Youll need an OPENAI key, and for the web search engine, an EXA key: https://dashboard.exa.ai/
 
+- Docker + Docker Compose installed
+- an `.env` file at the root (see .envexample):
+- an  `.env` inside /endpoint_upload_doc containing:
+```OPENAI_API_KEY=your_key_here
+EXA_API_MY_KEY=your_EXA_KEY_HERE
+```
+
+---
 
 ##  Initialization
 
@@ -30,6 +40,8 @@ This launches:
 Once running:
 -front-end (WOrk in progress) at `http://localhost:3000/`: 
   ![homepage](images/f_end.png "assistant front-end")
+  ![chat](images/chat.png "chat")
+
 
 - Flask endpoints (and upload home) at `http://localhost:5000/`:
   - POST request at / for file upload. Returns:
@@ -128,16 +140,6 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 ```
 ---
 
-## Requirements
-
-- Docker + Docker Compose installed
-- an `.env` file at the root (see .envexample):
-- an  `.env` inside /endpoint_upload_doc containing:
-```
-OPENAI_API_KEY=your_key_here
-```
-
----
 
 
 
