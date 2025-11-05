@@ -58,10 +58,10 @@ services:
     # - ${LETTA_SANDBOX_MOUNT_PATH:?}:/root/.letta/tool_execution_dir # mounted volume for tool execution
     healthcheck:
       test: ["CMD", "curl", "http://localhost:8283/v1/health/"]
-      interval: 10s # How often the status will be checked
-      retries: 6 # How many times to check before considering it unavailable
-      start_period: 60s # How long after startup to begin checks
-      timeout: 20s # Timeout for each test run
+      interval: 15s # How often the status will be checked
+      retries: 8 # How many times to check before considering it unavailable
+      start_period: 100s # How long after startup to begin checks
+      timeout: 25s # Timeout for each test run
   letta_nginx:
     hostname: letta-nginx
     image: nginx:stable-alpine3.17-slim
@@ -76,4 +76,17 @@ services:
     depends_on:
       letta_server:
         condition: service_healthy
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - letta_server
+      - endpoint_upload_doc
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=http://endpoint_upload_doc:5000
+      - NEXT_PUBLIC_LETTA_URL=http://letta_server:8283
+
 
