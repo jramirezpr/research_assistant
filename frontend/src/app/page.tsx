@@ -17,6 +17,7 @@ export default function HomePage() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [personality, setPersonality] = useState("helpful");
   const [loading, setLoading] = useState(false);
+  const [creatingAgent, setCreatingAgent] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -42,6 +43,7 @@ export default function HomePage() {
 
   const handleCreateAgent = async () => {
     try {
+      setCreatingAgent(true);
       const agentName = prompt("Enter agent name:") || "no_name";
       const agentData = await createAgent(agentName, personality);
       setAgentId(agentData.agent_id);
@@ -49,6 +51,8 @@ export default function HomePage() {
     } catch (err) {
       console.error("Agent creation failed:", err);
       alert("Could not create agent.");
+    } finally {
+      setCreatingAgent(false);
     }
   };
 
@@ -78,75 +82,98 @@ export default function HomePage() {
         Local Research Assistant
       </h1>
 
+      {/* Agent creation section */}
       <div className="flex gap-3 mb-8 justify-center">
         <select
           className="border rounded px-3 py-2 text-black"
           value={personality}
           onChange={(e) => setPersonality(e.target.value)}
+          disabled={creatingAgent || !!agentId} // disable while creating or after creation
         >
           <option value="helpful">Helpful</option>
           <option value="formal">Formal</option>
           <option value="casual">Casual</option>
         </select>
 
-        <button onClick={handleCreateAgent} className={buttonClasses}>
+        <button
+          onClick={handleCreateAgent}
+          className={buttonClasses}
+          disabled={creatingAgent || !!agentId}
+        >
           Create Agent
         </button>
       </div>
 
-      <div className="text-center mb-10">
-        <input type="file" onChange={handleFileChange} className="mb-3" />
+      {/* Spinner while creating agent */}
+      {creatingAgent && (
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-2"></div>
+          <p>Please wait, creating agent...</p>
+        </div>
+      )}
 
-        <button onClick={handleUpload} className={buttonClasses}>
-          Upload & Summarize
-        </button>
+      {/* File upload & chat: only visible after agent creation */}
+      {agentId && !creatingAgent && (
+        <>
+          {/* File upload */}
+          <div className="text-center mb-10">
+            <input type="file" onChange={handleFileChange} className="mb-3" />
 
-        {loading && (
-          <div className="mt-4 flex justify-center">
-            <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            <button onClick={handleUpload} className={buttonClasses}>
+              Upload & Summarize
+            </button>
+
+            {loading && (
+              <div className="mt-4 flex justify-center">
+                <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {summary && (
-        <div className="bg-white text-black p-4 rounded shadow mb-6">
-          <h3 className="text-xl mb-2 font-bold">Summary</h3>
-          <pre className="whitespace-pre-wrap">{summary}</pre>
-        </div>
+          {/* Summary & Markdown */}
+          {summary && (
+            <div className="bg-white text-black p-4 rounded shadow mb-6">
+              <h3 className="text-xl mb-2 font-bold">Summary</h3>
+              <pre className="whitespace-pre-wrap">{summary}</pre>
+            </div>
+          )}
+
+          {markdown && (
+            <div className="bg-gray-100 text-black p-4 rounded shadow mb-6">
+              <h3 className="text-xl mb-2 font-bold">Markdown</h3>
+              <pre className="whitespace-pre-wrap overflow-x-auto">{markdown}</pre>
+            </div>
+          )}
+
+          {/* Chat */}
+          <div className="bg-white text-black p-4 rounded shadow">
+            <h2 className="font-bold mb-2">Chat with Agent</h2>
+
+            <textarea
+              className="w-full border p-2 rounded mb-2 text-black"
+              rows={3}
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              placeholder="Ask something about your uploaded documents..."
+            />
+
+            <button onClick={handleChat} className={buttonClasses}>
+              Send
+            </button>
+
+            <div className="mt-3 max-h-48 overflow-y-auto text-sm">
+              {chatLog.map((m, i) => (
+                <p key={i} className="mb-1">
+                  {m}
+                </p>
+              ))}
+            </div>
+          </div>
+        </>
       )}
-
-      {markdown && (
-        <div className="bg-gray-100 text-black p-4 rounded shadow mb-6">
-          <h3 className="text-xl mb-2 font-bold">Markdown</h3>
-          <pre className="whitespace-pre-wrap overflow-x-auto">{markdown}</pre>
-        </div>
-      )}
-
-      <div className="bg-white text-black p-4 rounded shadow">
-        <h2 className="font-bold mb-2">Chat with Agent</h2>
-
-        <textarea
-          className="w-full border p-2 rounded mb-2 text-black"
-          rows={3}
-          value={chatMessage}
-          onChange={(e) => setChatMessage(e.target.value)}
-          placeholder="Ask something about your uploaded documents..."
-        />
-
-        <button onClick={handleChat} className={buttonClasses}>
-          Send
-        </button>
-
-        <div className="mt-3 max-h-48 overflow-y-auto text-sm">
-          {chatLog.map((m, i) => (
-            <p key={i} className="mb-1">
-              {m}
-            </p>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
+
 
 
