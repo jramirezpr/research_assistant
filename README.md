@@ -1,14 +1,7 @@
 # Local Research assistant
 
-This project provides a **local research knowledge pipeline** that:
+This project provides a **local research knowledge pipeline**
 
-Uploads documents documents  
-- Converts them to Markdown using **MarkItDown**  
-- Performs **map-reduce summarization** for large files  
-- Splits documents into **vector-embedded chunks** and stores them in a vector database (pgvector).  
-- Stores both chunks + summary in a **self-hosted Letta server**  
-
-You can later query / chat over all stored knowledge using Letta.
 
 ## Requirements
 Youll need an OPENAI key, and for the web search engine, an EXA key: https://dashboard.exa.ai/
@@ -41,7 +34,7 @@ This launches:
 
 
 Once running:
--front-end (WOrk in progress) at `http://localhost:3000/`: 
+-front-end (Next.js+Tailwind) at `http://localhost:3000/`: 
 
 The first thing to do is to create an agent:
 
@@ -63,6 +56,12 @@ The core persona for each type is a read-only memory block, but personality_grow
    | Chat with agent         | `POST` | `/api/chat`          |
 
 - Letta endpoint is available at  `http://localhost:8283`
+
+## Letta SERVER ADE (Optional)
+This is useful for Visualization of the letta server: To connect your local server to the ADE (if you have a letta account):
+go into Account, click on Projects, then click on Connect to a server, and add the url http://localhost:8283 with whatever name for your sever you might like. If your server is running you should see it listed on the self-hosted tab, and you can click on it to monitor your local agents in the Dashboard.
+
+![Letta](images/letta_ADE_local_server.png "self-hosted server")
 
 ### Agent creation:
 POST http://localhost:5000/api/agent/create
@@ -137,14 +136,14 @@ b'{"conversation":[{"content":"More human than human is our motto.","role":"assi
 1 GMT"},{"content":"{\\n  \\"type\\": \\"login\\",\\n  \\"last_login\\": \\"Never (first login)\\",\\n  \\"time\\": \\"2025-10-30 12:33:51 PM UTC+0000\\"\\n}","role":"user","timestamp":"Thu, 30 Oct 2025 12:33:51 GMT"},{"content":"who am I","role":"user","timestamp":"Thu, 30 Oct 2025 15:42:28 GMT"},{"content":"You\'re John, a researcher. How can I help you today?","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:42:55 GMT"},{"content":"what do you know about computer science?","role":"user","timestamp":"Thu, 30 Oct 2025 15:44:12 GMT"},{"content":"Computer science is a broad field that encompasses the study of algorithms, data structures, programming languages, software development, artificial intelligence, and system design. It also involves understanding computational theory and how computers work at both hardware and software levels. Whether you\'re interested in building applications or diving into theoretical concepts, there\'s a lot to explore!","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:44:19 GMT"},{"content":"what do you know about Germany?","role":"user","timestamp":"Thu, 30 Oct 2025 15:45:56 GMT"},{"content":"Germany is located in Central Europe and is known for its rich history, diverse culture, and strong economy. It\'s home to famous cities like Berlin (the capital), Munich, and Frankfurt. Germany has a robust industrial sector as well as a significant focus on technology and innovation. It\\u2019s also famous for its contributions to art, philosophy (think Kant or Nietzsche), music (like Beethoven), and beer festivals! Let me know if you want more specific information! \\ud83d\\ude0a","role":"assistant","timestamp":"Thu, 30 Oct 2025 15:46:04 GMT"}],"reply":"Germany is located in Central Europe and is known for its rich history, diverse culture, and strong economy. It\'s home to famous cities like Berlin (the capital), Munich, and Frankfurt. Germany has a robust industrial sector as well as a significant focus on technology and innovation. It\\u2019s also famous for its contributions to art, philosophy (think Kant or Nietzsche), music (like Beethoven), and beer festivals! Let me know if you want more specific information! \\ud83d\\ude0a"}\'
 
 ```
-
-THe agent can use EXA search engine to answer queries:
+## Chatting
+THe agent can use EXA search engine to answer queries.
+NOTE, streaming not enabled so you have to wait for the reply.
+In addition to being stateful, it has a search tool attached, so it can search the web:
 ![WebSearch](images/search_engine.png "Research using the web")
+And once documents are loaded it can answer questions about them, e.g. compare them:
 
-To connect your local server to the ADE (if you have a letta account):
-go into Account, click on Projects, then click on Connect to a server, and add the url http://localhost:8283 with whatever name for your sever you might like. If your server is running you should see it listed on the self-hosted tab, and you can click on it to monitor your local agents in the Dashboard.
-
-![Letta](images/letta_ADE_local_server.png "self-hosted server")
+![GANS](images/comparison.png "Example of a document query")
 
 ---
 
@@ -199,3 +198,18 @@ go into Account, click on Projects, then click on Connect to a server, and add t
 
 ---
 
+## Internals
+
+There is a class called AssistantWithFilesys which is the generic assistant class. The key initialization parameters are:
+```
+        agent_name: str, # name of the agent that will be associated with the assistant
+        folder_name: str, # Letta folder where docus are tracked
+        base_url: str = "http://letta_server:8283", #location of letta server
+        model: str = "openai/gpt-4o-mini", # LLM model used by  the assistant
+        personality: str = "helpful" # personality type
+```
+The key methods are:
+
+- ``upload_text_as_file`` uploads passed-in string as a file (you specify the filename it should be stored under.)
+- ``chat`` send a message to the agent and get a reply
+- ``get_conversation`` recovers recent conversation  history(both the sent messages and the responses.)
