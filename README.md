@@ -5,7 +5,7 @@ This project provides a **local research knowledge pipeline** that:
 Uploads documents documents  
 - Converts them to Markdown using **MarkItDown**  
 - Performs **map-reduce summarization** for large files  
-- Splits documents into **vector-embedded chunks** (RAG-ready)  
+- Splits documents into **vector-embedded chunks** and stores them in a vector database (pgvector).  
 - Stores both chunks + summary in a **self-hosted Letta server**  
 
 You can later query / chat over all stored knowledge using Letta.
@@ -42,6 +42,13 @@ This launches:
 
 Once running:
 -front-end (WOrk in progress) at `http://localhost:3000/`: 
+
+The first thing to do is to create an agent:
+
+Choose a personality type, and a pop-up will ask you for your agents name (for ID of different created agents inside the ADE):
+
+The core persona for each type is a read-only memory block, but personality_growth is a memory block that adapts to the users interactions.
+
   ![homepage](images/f_end.png "assistant front-end")
   ![chat](images/chat.png "chat")
 
