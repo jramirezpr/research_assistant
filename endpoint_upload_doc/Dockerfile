@@ -10,8 +10,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt
-RUN pip3 install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY . .
 
-CMD ["flask", "--app", "app", "run", "--host=0.0.0.0"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app", "-w", "2", "-k", "gthread", "--threads", "4", "--timeout", "300", "--log-level", "debug", "--error-logfile", "-"]

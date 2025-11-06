@@ -76,6 +76,8 @@ services:
     depends_on:
       letta_server:
         condition: service_healthy
+    env_file:
+    - .env
   frontend:
     build:
       context: ./frontend

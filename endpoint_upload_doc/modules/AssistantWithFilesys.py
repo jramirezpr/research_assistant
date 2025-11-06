@@ -1,5 +1,6 @@
 import os
 import tempfile
+import uuid
 
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
@@ -118,7 +119,7 @@ class AssistantWithFilesys:
                     {"label": "persona", "limit": 2000, "read_only": True,
                      "value": self._get_personality_text()},
                 ],
-                tools=["web_search"]
+                tools=["web_search"],
             )
         return agent
 
@@ -152,18 +153,8 @@ class AssistantWithFilesys:
     def upload_text_as_file(self, text_content: str, filename: str) -> dict:
         """
         Uploads text content (e.g., parsed Markdown) as a file to the agent's folder.
-        The filename is required — it should typically match the original uploaded file's name,
-        but with a `.md` extension.
-
-        Args:
-            text_content (str): The Markdown text to upload.
-            filename (str): The filename to use for the uploaded file (required).
-
-        Returns:
-            dict: {
-                "file_id": str,
-                "folder_id": str
-            }
+        Returns the real Letta file_id and folder_id immediately after upload.
+        Background polling continues for processing status.
         """
         if not self.folder:
             raise RuntimeError("Folder not initialized for this assistant.")
@@ -178,10 +169,12 @@ class AssistantWithFilesys:
         print(f"[Upload] Created temporary file for upload: {tmp_file_path}")
 
         try:
+            # Upload synchronously to get real Letta file_id
             with open(tmp_file_path, "rb") as f:
                 file_obj = self.client.folders.files.upload(
                     folder_id=folder_id,
-                    file=f
+                    file=f,
+                    name=filename  # <-- use the real filename here
                 )
 
             file_id = file_obj.id
@@ -220,6 +213,8 @@ class AssistantWithFilesys:
             print(f"[Upload] Deleted temporary file: {tmp_file_path}")
 
         return {"file_id": file_id, "folder_id": folder_id}
+
+
 
 
 

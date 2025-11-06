@@ -164,6 +164,7 @@ def upload_file():
         f"---\n\n"
         f"{summary}"
     )
+    print("**** main filename is:",main_filename)
 
     # Upload to Letta
     try:
