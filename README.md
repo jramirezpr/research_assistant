@@ -113,8 +113,9 @@ shows upload of the file (completed when done):
 
 ``` json
 {"file_id":"file-e8a4c2ee-c104-439d-be89-826659f5580c","status":"completed"}
-To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
 ```
+
+To chat with a letta agent we do a POST request to http://localhost:5000/api/chat:
 
 ``` python
 import json                                                                                                             >>> import requests                                                                                                         >>> header = {"Content-Type": "application/json"}                                                                           >>> data data= {"message":"what do you know about data science?"}
