@@ -12,12 +12,13 @@ You can later query / chat over all stored knowledge using Letta.
 
 ## Requirements
 Youll need an OPENAI key, and for the web search engine, an EXA key: https://dashboard.exa.ai/
-
+Make sure your docker containers have enough memory available (otherwise flask back-end app might die during upload).
 - Docker + Docker Compose installed
-- an `.env` file at the root (see .envexample):
-- an  `.env` inside /endpoint_upload_doc containing:
-```OPENAI_API_KEY=your_key_here
-EXA_API_MY_KEY=your_EXA_KEY_HERE
+- an `.env` file at the root (see .envexample).
+- an  `.env` inside /endpoint_upload_doc.  both should contain:
+```
+OPENAI_API_KEY=your_key_here
+EXA_API_KEY=your_EXA_KEY_HERE
 ```
 
 ---
