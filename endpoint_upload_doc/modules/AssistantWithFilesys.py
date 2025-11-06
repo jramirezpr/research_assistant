@@ -118,6 +118,8 @@ class AssistantWithFilesys:
                      "value": "Occupation: Researcher."},
                     {"label": "persona", "limit": 2000, "read_only": True,
                      "value": self._get_personality_text()},
+                     {"label": "personality growth", "limit": 2000,
+                     "value": "I should cite my sources. I should adapt my responses to the user's needs."},
                 ],
                 tools=["web_search"],
             )
