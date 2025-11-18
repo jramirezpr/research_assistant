@@ -1,18 +1,15 @@
 import os
 import tempfile
-import uuid
 
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 from letta_client import Letta
+from typing import Optional
 
 # Load environment variables if not already set. Letta client needs this.
 if "OPENAI_API_KEY" not in os.environ:
     load_dotenv()
 import time
-
-
-
 
 
 class AssistantWithFilesys:
@@ -67,11 +64,12 @@ class AssistantWithFilesys:
 
     def __init__(
         self,
-        agent_name: str,
-        folder_name: str,
+        agent_name: Optional[str] = None,
+        folder_name: Optional[str] = None,
         base_url: str = "http://letta_server:8283",
         model: str = "openai/gpt-4o-mini",
-        personality: str = "helpful"
+        personality: str = "helpful",
+        agent_id: Optional[str] = None,
     ):
         """Initialize the Letta client, ensure the agent and folder exist, and attach them."""
         self.base_url = base_url
@@ -84,10 +82,15 @@ class AssistantWithFilesys:
         self.folder = None
         self.executor = ThreadPoolExecutor(max_workers=3)
 
-        # Automatically set up on init
-        self.agent = self._ensure_agent_exists()
-        self.folder = self._ensure_folder_exists()
-        self._attach_folder_to_agent()
+        if agent_id:
+            self._load_existing_agent(agent_id)
+        else:
+            if not self.agent_name or not self.folder_name:
+                raise ValueError("agent_name and folder_name are required when agent_id is not provided.")
+            # Automatically set up on init for brand-new agents
+            self.agent = self._ensure_agent_exists()
+            self.folder = self._ensure_folder_exists()
+            self._attach_folder_to_agent()
 
     def _validate_personality(self, personality: str) -> str:
         """Normalize and validate personality, with fallback to 'helpful'."""
@@ -152,13 +155,45 @@ class AssistantWithFilesys:
         except Exception as e:
             print(f"[Letta] Folder may already be attached: {e}")
 
+    def _load_existing_agent(self, agent_id: str):
+        """Load an already-created agent and folder directly from Letta."""
+        try:
+            self.agent = self.client.agents.retrieve(agent_id=agent_id)
+            if not self.agent_name:
+                self.agent_name = getattr(self.agent, "name", None)
+        except Exception as exc:
+            raise RuntimeError(f"Unable to load agent '{agent_id}': {exc}") from exc
+
+        try:
+            attached = self.client.agents.folders.list(agent_id=agent_id)
+        except Exception as exc:
+            raise RuntimeError(f"Unable to retrieve folders for agent '{agent_id}': {exc}") from exc
+        if not attached:
+            raise RuntimeError(f"Agent '{agent_id}' has no folders attached.")
+        folder_ref = attached[0]
+        folder_id = getattr(folder_ref, "id", None)
+        if folder_id is None and isinstance(folder_ref, dict):
+            folder_id = folder_ref.get("id")
+        if not folder_id:
+            raise RuntimeError("Could not determine folder id for existing agent.")
+
+        try:
+            folder = self.client.folders.retrieve(folder_id=folder_id)
+        except Exception as exc:
+            raise RuntimeError(f"Unable to load folder '{folder_id}': {exc}") from exc
+
+        self.folder = folder
+        if not self.folder_name:
+            self.folder_name = getattr(folder, "name", None) if hasattr(folder, "name") else None
+
+
     def upload_text_as_file(self, text_content: str, filename: str) -> dict:
         """
         Uploads text content (e.g., parsed Markdown) as a file to the agent's folder.
         Returns the real Letta file_id and folder_id immediately after upload.
         Background polling continues for processing status.
         """
-        if not self.folder:
+        if self.folder is None:
             raise RuntimeError("Folder not initialized for this assistant.")
 
         folder_id = self.folder.id
