@@ -10,6 +10,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from markitdown import MarkItDown
 from modules.AssistantWithFilesys import AssistantWithFilesys
+from letta_client import Letta
 from langchain.chat_models import init_chat_model
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_core.documents import Document
@@ -58,7 +59,6 @@ CORS(app)
 
 markitdown = MarkItDown()
 LETTA_BASE = "http://letta_server:8283/"
-agents = {}
 
 @app.route("/")
 def index():
@@ -82,7 +82,6 @@ def create_agent():
         )
         agent_id = assistant.get_agent_id()
         folder_id = assistant.get_folder_id()
-        agents[agent_id] = assistant
         return jsonify({
             "message": "Agent created successfully",
             "agent_name": agent_name,
@@ -95,15 +94,22 @@ def create_agent():
 
 @app.route("/api/agent/list", methods=["GET"])
 def list_agents():
-    if not agents:
-        return jsonify({"agents": []}), 200
+    client = Letta(base_url=LETTA_BASE)
+    try:
+        letta_agents = client.agents.list()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     agent_data = []
-    for agent_id, assistant in agents.items():
+    for agent in letta_agents:
+        agent_id = agent.id
+        folder = client.folders.list(agent_id=agent_id)[0]
+        folder_id = folder.id
         agent_data.append({
             "agent_id": agent_id,
-            "agent_name": assistant.agent_name,
-            "folder_id": assistant.get_folder_id(),
-            "personality": assistant.personality
+            "agent_name": getattr(agent, "name", "unknown"),
+            "folder_id": folder_id,
+            "personality": getattr(agent, "personality", "unknown")
         })
     return jsonify({"agents": agent_data}), 200
 
@@ -115,10 +121,13 @@ def upload_file():
     file = request.files["file"]
     agent_id = request.form.get("agent_id")
 
-    if not agent_id or agent_id not in agents:
+    if not agent_id:
         return jsonify({"error": "Missing or invalid agent_id"}), 400
 
-    assistant = agents[agent_id]
+    try:
+        assistant = AssistantWithFilesys(agent_id=agent_id, base_url=LETTA_BASE)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
 
     # Save temp file
     filename = file.filename or f"unnamed_{uuid.uuid4().hex[:6]}"
@@ -195,9 +204,10 @@ def check_upload_status():
     agent_id = request.args.get("agent_id")
     if not folder_id or not file_id or not agent_id:
         return jsonify({"error": "Missing folder_id, file_id, or agent_id"}), 400
-    if agent_id not in agents:
-        return jsonify({"error": "Unknown agent_id"}), 404
-    assistant = agents[agent_id]
+    try:
+        assistant = AssistantWithFilesys(agent_id=agent_id, base_url=LETTA_BASE)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
     try:
         files = assistant.client.folders.files.list(
             folder_id=folder_id,
@@ -220,10 +230,11 @@ def chat_with_agent():
     if not data or "message" not in data or "agent_id" not in data:
         return jsonify({"error": "Missing 'message' or 'agent_id'"}), 400
     agent_id = data["agent_id"]
-    if agent_id not in agents:
-        return jsonify({"error": "Unknown agent_id"}), 404
-    assistant = agents[agent_id]
     user_message = data["message"].strip()
+    try:
+        assistant = AssistantWithFilesys(agent_id=agent_id, base_url=LETTA_BASE)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
     try:
         chat_data = assistant.chat(user_message)
         return jsonify(chat_data), 200
